@@ -7,42 +7,56 @@ import (
 	"strconv"
 )
 
-type TextToCheck struct {
+type SymbolInfo struct {
+	TimesEncountered int
+	Value            int64
+}
+
+type TextToCheckSecondPart struct {
 	FullText      []string
 	CurrentRow    int
 	CurrentColumn int
 	AboveChars    []rune
 	CurrentChars  []rune
 	BelowChars    []rune
+	Symbols       map[int]SymbolInfo
 }
 
-func (t *TextToCheck) GearRatios() (int64, error) {
+func (t *TextToCheckSecondPart) GearRatios() (int64, error) {
 	totalNumber := int64(0)
 	for len(t.CurrentChars) != 0 {
-		num, err := t.GetNextNumber()
+		err := t.GetNextNumber()
 		if err != nil {
 			return 0, err
 		}
-		totalNumber += num
 	}
+
+	for _, value := range t.Symbols {
+		if value.TimesEncountered == 2 {
+			println(value.Value)
+			totalNumber += value.Value
+		}
+	}
+
 	return totalNumber, nil
 }
 
-func New(text []string) *TextToCheck {
+func New(text []string) *TextToCheckSecondPart {
 	if len(text) < 2 {
 		return nil
 	}
-	return &TextToCheck{
+	return &TextToCheckSecondPart{
 		FullText:      text,
 		CurrentRow:    0,
 		CurrentColumn: 0,
 		AboveChars:    []rune{},
 		CurrentChars:  []rune(text[0]),
 		BelowChars:    []rune(text[1]),
+		Symbols:       make(map[int]SymbolInfo),
 	}
 }
 
-func (t *TextToCheck) GetNextNumber() (int64, error) {
+func (t *TextToCheckSecondPart) GetNextNumber() error {
 	finalNumber := ""
 	i := t.CurrentColumn
 	for i < len(t.CurrentChars) {
@@ -54,28 +68,21 @@ func (t *TextToCheck) GetNextNumber() (int64, error) {
 				in += 1
 			}
 			t.CurrentColumn = i
-			if !t.IsSymbolAdjacent() {
-				t.CurrentColumn = in
-				return t.GetNextNumber()
-			} else {
-				t.CurrentColumn = in
-				num, err := strconv.ParseInt(finalNumber, 0, 64)
-				if err != nil {
-					return 0, err
-				}
-				return num, nil
+			num, err := strconv.ParseInt(finalNumber, 0, 64)
+			if err != nil {
+				return err
 			}
+			t.AdjacentSymbols(num)
+			t.CurrentColumn = in
+			return nil
 		}
 		i += 1
 	}
 	t.IterateNext()
-	if len(t.CurrentChars) == 0 {
-		return 0, nil
-	}
-	return t.GetNextNumber()
+	return nil
 }
 
-func (t *TextToCheck) IterateNext() {
+func (t *TextToCheckSecondPart) IterateNext() {
 	t.CurrentColumn = 0
 	if t.CurrentRow == len(t.FullText)-1 {
 		t.CurrentChars = []rune{}
@@ -92,44 +99,49 @@ func (t *TextToCheck) IterateNext() {
 	}
 }
 
-func (t *TextToCheck) IsSymbolAdjacent() bool {
+func (t *TextToCheckSecondPart) AdjacentSymbols(value int64) {
 
 	indexToCheck := t.CurrentColumn - 1
 	if indexToCheck > 0 {
-		if t.CheckIndex(indexToCheck) {
-			return true
+		whichRow := t.CheckIndex(indexToCheck)
+		if whichRow != -2 {
+			symbolIndex := (t.CurrentRow+whichRow)*len(t.CurrentChars) + indexToCheck
+			t.addToMap(symbolIndex, value)
+			return
 		}
 	}
 	i := 0
 	indexToCheck = t.CurrentColumn
 	for indexToCheck < len(t.CurrentChars) {
-		if t.CheckIndex(t.CurrentColumn + i) {
-			return true
+		whichRow := t.CheckIndex(t.CurrentColumn + i)
+		if whichRow != -2 {
+			symbolIndex := (t.CurrentRow+whichRow)*len(t.CurrentChars) + t.CurrentColumn + i
+			t.addToMap(symbolIndex, value)
+			return
 		}
 		if t.CurrentChars[t.CurrentColumn+i] == '.' {
-			return false
+			return
 		}
 		indexToCheck += 1
 		i += 1
 	}
-	return false
 }
 
-func (t *TextToCheck) CheckIndex(index int) bool {
+func (t *TextToCheckSecondPart) CheckIndex(index int) int {
 	if len(t.AboveChars) != 0 {
 		if !isNumeric(t.AboveChars[index]) {
-			return true
+			return -1
 		}
 	}
 	if !isNumeric(t.CurrentChars[index]) {
-		return true
+		return 0
 	}
 	if len(t.BelowChars) != 0 {
 		if !isNumeric(t.BelowChars[index]) {
-			return true
+			return 1
 		}
 	}
-	return false
+	return -2
 }
 
 func isNumeric(char rune) bool {
@@ -160,6 +172,16 @@ func ReadFileLines(filename string) ([]string, error) {
 	return lines, nil
 }
 
+func (t *TextToCheckSecondPart) addToMap(key int, value int64) {
+	if symbol, ok := t.Symbols[key]; ok {
+		symbol.TimesEncountered = symbol.TimesEncountered + 1
+		symbol.Value = symbol.Value * value
+		t.Symbols[key] = symbol
+	} else {
+		t.Symbols[key] = SymbolInfo{TimesEncountered: 1, Value: value}
+	}
+}
+
 func main() {
 	lines, err := ReadFileLines("input-4.txt")
 	if err != nil {
@@ -176,4 +198,3 @@ func main() {
 	println(res)
 
 }
-
