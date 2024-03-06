@@ -47,12 +47,10 @@ func (a *AllScratchCards) TotalScratchCards() (int64, error) {
 	totalCards := int64(0)
 	for i, card := range a.ScratchCards {
 		gameResult := CalculateGameResult(card.Game)
-		for j := int64(0); j < a.ScratchCards[i].numCardBoards; j++ {
-			for k := 1; k <= gameResult; k++ {
-				finalIndex := k + i
-				if finalIndex < len(a.ScratchCards) {
-					a.ScratchCards[finalIndex].numCardBoards += 1
-				}
+		for k := 1; k <= gameResult; k++ {
+			finalIndex := k + i
+			if finalIndex < len(a.ScratchCards) {
+				a.ScratchCards[finalIndex].numCardBoards += a.ScratchCards[i].numCardBoards
 			}
 		}
 		totalCards += card.numCardBoards
